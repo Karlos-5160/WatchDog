@@ -43,7 +43,7 @@ $xml = @"
   <Triggers>
     <BootTrigger>
       <Enabled>true</Enabled>
-      <Delay>PT20S</Delay>
+      <Delay>PT0S</Delay>
     </BootTrigger>
   </Triggers>
   <Principals>

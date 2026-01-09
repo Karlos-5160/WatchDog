@@ -129,11 +129,6 @@ def capture_intruder():
     
     try:
         cam = cv2.VideoCapture(CAM_INDEX)
-        
-        # Minimal warmup for instant capture (reduced from 0.6s to 0.2s)
-        time.sleep(0.2)
-        
-        # Try to grab frame immediately
         ret, frame = cam.read()
         
         if ret:
@@ -196,8 +191,8 @@ def monitor_failed_logins(stop_event):
             events = win32evtlog.ReadEventLog(handle, flags, 0)
 
             if not events:
-                # Reduced sleep for faster detection (0.1s instead of 1s)
-                time.sleep(0.1)
+                # Ultra-fast polling
+                time.sleep(0.05)
                 continue
 
             for event in events:
