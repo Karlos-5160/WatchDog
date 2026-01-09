@@ -5,12 +5,25 @@ import cv2
 import requests
 import win32evtlog
 import threading
+import sys
+
+# Ensure root directory is in path for imports
+if not getattr(sys, 'frozen', False):
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import new modules
+try:
+    # Try local import (if running from inside service dir)
+    import commander
+    from camera import capture_intruder_file
+except ImportError:
+    # Try package import (if running from root or exe)
+    import service.commander as commander
+    from service.camera import capture_intruder_file
 
 # --------------------------------------------------
 # PATHS (SERVICE SAFE)
 # --------------------------------------------------
-import sys
-
 if getattr(sys, 'frozen', False):
     # Running as compiled EXE
     BASE_DIR = os.path.dirname(sys.executable)
@@ -23,15 +36,15 @@ else:
 
 IMAGE_DIR = os.getenv("PROGRAMDATA") or "C:\\ProgramData"
 CAPTURES_DIR = os.path.join(IMAGE_DIR, "AntiTheftCaptures")
+
 if not os.path.exists(CAPTURES_DIR):
     try:
         os.makedirs(CAPTURES_DIR)
     except Exception as e:
         print(f"[ERROR] Could not create capture dir: {e}")
 
-CAPTURE_COOLDOWN = 1  # seconds (no more photos within this time)
+CAPTURE_COOLDOWN = 1  # seconds
 last_capture_time = 0
-
 
 # --------------------------------------------------
 # LOAD CONFIG (SAFE)
@@ -55,9 +68,6 @@ CHECK_INTERVAL = CONFIG.get("security", {}).get("check_interval_seconds", 0.1)
 CAM_INDEX = CONFIG.get("camera", {}).get("device_index", 0)
 
 # --------------------------------------------------
-# TELEGRAM
-# --------------------------------------------------
-# --------------------------------------------------
 # UPLOAD WORKER (QUEUE HANDLER)
 # --------------------------------------------------
 def check_internet():
@@ -72,10 +82,7 @@ def send_telegram_photo(image_path):
         return False
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-    data = {
-        "chat_id": CHAT_ID,
-        "caption": "🚨 Wrong PIN attempt detected! (Buffered Image)"
-    }
+    data = {"chat_id": CHAT_ID, "caption": "🚨 Wrong PIN attempt detected! (Buffered Image)"}
 
     try:
         with open(image_path, "rb") as img:
@@ -89,17 +96,16 @@ def send_telegram_photo(image_path):
 def upload_worker(stop_event):
     print("[*] Upload worker started (queue monitor)")
     while not stop_event.is_set():
-        # Check if we have files to upload
         if not os.path.exists(CAPTURES_DIR):
             time.sleep(5)
             continue
             
-        files = [f for f in os.listdir(CAPTURES_DIR) if f.endswith(".jpg")]
+        files = [f for f in os.listdir(CAPTURES_DIR) if f.endswith(".jpg") or f.endswith(".png")]
         if not files:
             time.sleep(5)
             continue
 
-        print(f"[DEBUG] Found {len(files)} pening uploads. Checking internet...")
+        print(f"[DEBUG] Found {len(files)} pending uploads. Checking internet...")
         
         if check_internet():
             print("[DEBUG] Internet connected. Processing queue...")
@@ -118,129 +124,83 @@ def upload_worker(stop_event):
         else:
             print("[DEBUG] No internet. Waiting...")
         
-        time.sleep(10)  # Check every 10 seconds
+        time.sleep(10)
 
 # --------------------------------------------------
-# CAMERA
+# CAMERA WRAPPER
 # --------------------------------------------------
 def capture_intruder():
-    """Capture photo instantly with minimal delay"""
+    """Wrapper for shared camera logic"""
     print("[DEBUG] capture_intruder() called")
-    
-    try:
-        cam = cv2.VideoCapture(CAM_INDEX)
-        ret, frame = cam.read()
-        
-        if ret:
-            timestamp = int(time.time())
-            filename = f"intruder_{timestamp}.jpg"
-            save_path = os.path.join(CAPTURES_DIR, filename)
-            cv2.imwrite(save_path, frame)
-            print(f"[INFO] ✓ Captured: {save_path}")
-        else:
-            # Retry once if first attempt fails
-            print("[DEBUG] First capture failed, retrying...")
-            time.sleep(0.3)
-            ret, frame = cam.read()
-            if ret:
-                timestamp = int(time.time())
-                filename = f"intruder_{timestamp}.jpg"
-                save_path = os.path.join(CAPTURES_DIR, filename)
-                cv2.imwrite(save_path, frame)
-                print(f"[INFO] ✓ Captured (retry): {save_path}")
-            else:
-                print("[ERROR] Failed to grab frame after retry")
-        
-        cam.release()
-        cv2.destroyAllWindows()
-        
-    except Exception as e:
-        print(f"[ERROR] Capture exception: {e}")
+    saved_path = capture_intruder_file(CAPTURES_DIR, CAM_INDEX)
+    if saved_path:
+        print(f"[INFO] ✓ Captured: {saved_path}")
+    else:
+        print("[ERROR] Capture failed")
 
 # --------------------------------------------------
-# EVENT LOG MONITOR (CORRECT)
+# EVENT LOG MONITOR
 # --------------------------------------------------
-
 def monitor_failed_logins(stop_event):
     global last_capture_time
-
     server = "localhost"
     log_type = "Security"
 
-    handle = win32evtlog.OpenEventLog(server, log_type)
+    try:
+        handle = win32evtlog.OpenEventLog(server, log_type)
+        back_flags = win32evtlog.EVENTLOG_BACKWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
+        events = win32evtlog.ReadEventLog(handle, back_flags, 0)
+        last_record = events[0].RecordNumber if events else 0
 
-    # 1️⃣ Anchor to latest record using BACKWARDS_READ
-    back_flags = win32evtlog.EVENTLOG_BACKWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
-    events = win32evtlog.ReadEventLog(handle, back_flags, 0)
+        print(f"[*] Anchored at record {last_record}")
+        print("[*] Monitoring Security log (INSTANT MODE - Fast Detection)")
 
-    if events:
-        last_record = events[0].RecordNumber
-    else:
-        last_record = 0
+        flags = win32evtlog.EVENTLOG_FORWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
+        failed_count = 0
 
-    print(f"[*] Anchored at record {last_record}")
-    print("[*] Monitoring Security log (INSTANT MODE - Fast Detection)")
-
-    # 2️⃣ Switch to forward real-time monitoring
-    flags = win32evtlog.EVENTLOG_FORWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
-
-    failed_count = 0
-
-    while not stop_event.is_set():
-        try:
-            events = win32evtlog.ReadEventLog(handle, flags, 0)
-
-            if not events:
-                # Ultra-fast polling
-                time.sleep(0.05)
-                continue
-
-            for event in events:
-                if event.RecordNumber <= last_record:
+        while not stop_event.is_set():
+            try:
+                events = win32evtlog.ReadEventLog(handle, flags, 0)
+                if not events:
+                    time.sleep(0.05) # Ultra-fast polling
                     continue
 
-                last_record = event.RecordNumber
+                for event in events:
+                    if event.RecordNumber <= last_record:
+                        continue
+                    last_record = event.RecordNumber
 
-                if event.EventID == TARGET_EVENT_ID:
-                    failed_count += 1
-                    print(f"[ALERT] Failed login #{failed_count} detected (Event 4625)")
+                    if event.EventID == TARGET_EVENT_ID:
+                        failed_count += 1
+                        print(f"[ALERT] Failed login #{failed_count}")
 
-                    if failed_count >= FAILED_THRESHOLD:
-                        now = time.time()
-
-                        if now - last_capture_time >= CAPTURE_COOLDOWN:
-                            print(f"[ACTION] Threshold reached! Capturing NOW...")
-                            
-                            # Capture in separate thread for non-blocking operation
-                            capture_thread = threading.Thread(target=capture_intruder, daemon=True)
-                            capture_thread.start()
-                            
-                            last_capture_time = now
-                            print("[INFO] Intruder capture initiated & queued for upload")
-                        else:
-                            print("[INFO] Capture skipped (cooldown active)")
-
-                        failed_count = 0
-
-            # Faster polling for instant detection (0.1s instead of 0.5s)
-            time.sleep(0.1)
-
-        except Exception as e:
-            print("[ERROR]", e)
-            time.sleep(2)
-
+                        if failed_count >= FAILED_THRESHOLD:
+                            now = time.time()
+                            if now - last_capture_time >= CAPTURE_COOLDOWN:
+                                print(f"[ACTION] Capturing NOW...")
+                                threading.Thread(target=capture_intruder, daemon=True).start()
+                                last_capture_time = now
+                            failed_count = 0
+                time.sleep(0.1)
+            except Exception as e:
+                print("[ERROR]", e)
+                time.sleep(2)
+    except Exception as e:
+        print(f"[CRITICAL] Event Log Error: {e}")
 
 # --------------------------------------------------
 # ENTRY POINT
 # --------------------------------------------------
 def start_monitoring(stop_event):
-    thread = threading.Thread(
+    # 1. Start Event Monitor
+    monitor_thread = threading.Thread(
         target=monitor_failed_logins,
         args=(stop_event,),
         daemon=True
     )
-    thread.start()
+    monitor_thread.start()
 
+    # 2. Start Upload Worker
     upload_thread = threading.Thread(
         target=upload_worker,
         args=(stop_event,),
@@ -248,11 +208,16 @@ def start_monitoring(stop_event):
     )
     upload_thread.start()
 
-# --------------------------------------------------
-# MANUAL TEST MODE
-# --------------------------------------------------
+    # 3. Start Command Center (Remote Control)
+    commander.init_commander(CONFIG, CAPTURES_DIR)
+    commander_thread = threading.Thread(
+        target=commander.start_commander_loop,
+        daemon=True
+    )
+    commander_thread.start()
+
 if __name__ == "__main__":
-    print("[*] Running monitor in test mode...")
+    print("[*] Running WatchDog Secure Monitor...")
     dummy_event = threading.Event()
     start_monitoring(dummy_event)
 
