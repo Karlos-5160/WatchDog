@@ -97,30 +97,38 @@ Edit `config.json`:
 
 ## 🔧 Management
 
-### Check Status
-```powershell
-Get-Process -Name monitor -ErrorAction SilentlyContinue
-```
+Run these commands in **PowerShell as Administrator**.
 
 ### Start Monitor
+Starts the service immediately.
 ```powershell
 schtasks /Run /TN "AntiTheftMonitor"
 ```
 
 ### Stop Monitor
+Stops the service immediately.
 ```powershell
-Stop-Process -Name monitor -Force
+schtasks /End /TN "AntiTheftMonitor"
+Stop-Process -Name monitor -Force -ErrorAction SilentlyContinue
 ```
 
 ### Disable Startup
+Prevents the monitor from starting automatically on boot.
 ```powershell
 schtasks /Change /TN "AntiTheftMonitor" /DISABLE
 ```
 
 ### Enable Startup
+Enables the monitor to start automatically on boot.
 ```powershell
 schtasks /Change /TN "AntiTheftMonitor" /ENABLE
 ```
+
+> **Note:** If you installed using `setup.ps1`, the task names are different:
+> - **Service:** `AntiTheft_Service`
+> - **Commander:** `AntiTheft_Commander`
+>
+> Replace `"AntiTheftMonitor"` with the appropriate task name in the commands above.
 
 ## 🛡️ How It Works
 

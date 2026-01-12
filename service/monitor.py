@@ -1,8 +1,6 @@
 import os
 import time
 import json
-import cv2
-import requests
 import win32evtlog
 import threading
 import sys
@@ -14,11 +12,9 @@ if not getattr(sys, 'frozen', False):
 # Import new modules
 try:
     # Try local import (if running from inside service dir)
-    import commander
     from camera import capture_intruder_file
 except ImportError:
     # Try package import (if running from root or exe)
-    import service.commander as commander
     from service.camera import capture_intruder_file
 
 # --------------------------------------------------
@@ -72,6 +68,7 @@ CAM_INDEX = CONFIG.get("camera", {}).get("device_index", 0)
 # --------------------------------------------------
 def check_internet():
     try:
+        import requests
         requests.get("https://www.google.com", timeout=1)
         return True
     except:
@@ -85,6 +82,7 @@ def send_telegram_photo(image_path):
     data = {"chat_id": CHAT_ID, "caption": "🚨 Wrong PIN attempt detected! (Buffered Image)"}
 
     try:
+        import requests
         with open(image_path, "rb") as img:
             files = {"photo": img}
             resp = requests.post(url, data=data, files=files, timeout=20)
@@ -110,6 +108,10 @@ def upload_worker(stop_event):
         if check_internet():
             print("[DEBUG] Internet connected. Processing queue...")
             for filename in files:
+                # Skip user command files (Commander handles them)
+                if filename.startswith("cmd_"):
+                    continue
+
                 filepath = os.path.join(CAPTURES_DIR, filename)
                 print(f"[Attempting] {filename}")
                 
@@ -132,7 +134,7 @@ def upload_worker(stop_event):
 def capture_intruder():
     """Wrapper for shared camera logic"""
     print("[DEBUG] capture_intruder() called")
-    saved_path = capture_intruder_file(CAPTURES_DIR, CAM_INDEX)
+    saved_path = capture_intruder_file(CAPTURES_DIR, CAM_INDEX, prefix="alert_")
     if saved_path:
         print(f"[INFO] ✓ Captured: {saved_path}")
     else:
@@ -191,7 +193,12 @@ def monitor_failed_logins(stop_event):
 # --------------------------------------------------
 # ENTRY POINT
 # --------------------------------------------------
-def start_monitoring(stop_event):
+# --------------------------------------------------
+# ENTRY POINT
+# --------------------------------------------------
+def start_service(stop_event):
+    print("[*] Service Mode: Starting Security Monitor & Upload Worker")
+    
     # 1. Start Event Monitor
     monitor_thread = threading.Thread(
         target=monitor_failed_logins,
@@ -208,21 +215,33 @@ def start_monitoring(stop_event):
     )
     upload_thread.start()
 
-    # 3. Start Command Center (Remote Control)
+def start_commander():
+    print("[*] Commander Mode: Starting Telegram Agent")
+    try:
+        import commander
+    except ImportError:
+        import service.commander as commander
+
     commander.init_commander(CONFIG, CAPTURES_DIR)
-    commander_thread = threading.Thread(
-        target=commander.start_commander_loop,
-        daemon=True
-    )
-    commander_thread.start()
+    # Run in main thread since it's the only thing running in this mode
+    commander.start_commander_loop()
 
 if __name__ == "__main__":
-    print("[*] Running WatchDog Secure Monitor...")
-    dummy_event = threading.Event()
-    start_monitoring(dummy_event)
+    mode = "service"
+    if len(sys.argv) > 1:
+        if "--commander" in sys.argv:
+            mode = "commander"
+    
+    if mode == "commander":
+        start_commander()
+    else:
+        # Service Mode
+        print("[*] Running WatchDog Secure Monitor (SYSTEM SERVICE)...")
+        dummy_event = threading.Event()
+        start_service(dummy_event)
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        dummy_event.set()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            dummy_event.set()

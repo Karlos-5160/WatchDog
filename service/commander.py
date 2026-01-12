@@ -60,7 +60,7 @@ def execute_command(command_text):
             from camera import capture_intruder_file
         
         send_reply("📸 Capturing photo...")
-        filepath = capture_intruder_file(CAPTURES_DIR)
+        filepath = capture_intruder_file(CAPTURES_DIR, prefix="cmd_")
         if filepath:
             send_photo(filepath, "📸 Remote capture requested")
             try:

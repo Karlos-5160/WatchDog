@@ -1,14 +1,15 @@
-import cv2
+# import cv2  <-- Moved inside function
 import time
 import os
 
-def capture_intruder_file(save_dir, cam_index=0):
+def capture_intruder_file(save_dir, cam_index=0, prefix="capture_"):
     """
     Captures a single frame and saves it to the specified directory.
     Returns the absolute path of the saved file, or None if failed.
     Optimized for speed (no warmup).
     """
     try:
+        import cv2
         cam = cv2.VideoCapture(cam_index)
         
         # Immediate read, no warmup (optimized)
@@ -23,7 +24,7 @@ def capture_intruder_file(save_dir, cam_index=0):
         
         if ret:
             timestamp = int(time.time())
-            filename = f"capture_{timestamp}.jpg"
+            filename = f"{prefix}{timestamp}.jpg"
             save_path = os.path.join(save_dir, filename)
             cv2.imwrite(save_path, frame)
             return save_path
