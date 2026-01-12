@@ -1,7 +1,7 @@
 # Run as Administrator
 
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "FINAL FIX - Hidden Background Execution" -ForegroundColor Cyan
+Write-Host "Background Execution" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -41,14 +41,14 @@ $xml = @"
     <Description>Anti-Theft Monitor - Runs hidden in background</Description>
   </RegistrationInfo>
   <Triggers>
-    <BootTrigger>
+    <LogonTrigger>
       <Enabled>true</Enabled>
-      <Delay>PT0S</Delay>
-    </BootTrigger>
+      <Delay>PT1S</Delay>
+    </LogonTrigger>
   </Triggers>
   <Principals>
     <Principal id="Author">
-      <UserId>S-1-5-18</UserId>
+      <LogonType>InteractiveToken</LogonType>
       <RunLevel>HighestAvailable</RunLevel>
     </Principal>
   </Principals>
