@@ -1,7 +1,12 @@
 {
     "telegram": {
+<<<<<<< HEAD
         "bot_token": "bot_token",
         "chat_id": "chat_id"
+=======
+        "bot_token": "//bot_token_here",
+        "chat_id": "//chat_id_here"
+>>>>>>> 5f94ca6aa37a007a56d75c0cc606e7eae0621592
     },
     "security": {
         "failed_attempt_threshold": 2,
