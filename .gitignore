@@ -6,7 +6,6 @@ __pycache__/
 # Distribution / Build
 build/
 dist/
-*.spec
 *.exe
 
 # Environments

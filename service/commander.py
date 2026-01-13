@@ -98,19 +98,100 @@ def execute_command(command_text):
         # Usage: /msg Hello Thief
         message = " ".join(cmd[1:])
         if message:
-            send_reply(f"📢 Displaying message: '{message}'")
-            # Run detached to not block
-            cmd_line = f'mshta "javascript:code(close((new ActiveXObject("WScript.Shell")).Popup("{message}",0,"WatchDog Alert",48+4096)))"'
-            threading.Thread(target=os.system, args=(cmd_line,)).start()
+            send_reply(f"📢 Opening Notepad: '{message}'")
+            
+            def show_notepad_msg(msg):
+                import subprocess
+                try:
+                    # Create a visible text file
+                    file_path = os.path.join(CAPTURES_DIR, "MESSAGE_FROM_OWNER.txt")
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(msg)
+                    
+                    # Open Notepad without shell window
+                    subprocess.Popen(["notepad.exe", file_path])
+                except Exception as e:
+                    print(f"[ERROR] Failed to open notepad: {e}")
+
+            threading.Thread(target=show_notepad_msg, args=(message,)).start()
         else:
             send_reply("⚠️ Usage: /msg [Your Message]")
             
+    elif action == "/locate":
+        send_reply("📡 Scanning WiFi Spectrum & Geolocation...")
+        
+        def fetch_loc():
+            import subprocess
+            
+            # 1. Scan Nearby WiFi Networks (Triangulation Data)
+            wifi_list = []
+            try:
+                si = subprocess.STARTUPINFO()
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                output = subprocess.check_output(
+                    ["netsh", "wlan", "show", "networks", "mode=bssid"], 
+                    startupinfo=si, 
+                    encoding="utf-8", 
+                    errors="ignore"
+                )
+                
+                current_ssid = "Unknown"
+                for line in output.split("\n"):
+                    line = line.strip()
+                    if line.startswith("SSID"):
+                        # Format: "SSID 1 : Name"
+                        parts = line.split(":", 1)
+                        if len(parts) > 1:
+                            current_ssid = parts[1].strip()
+                    elif line.startswith("BSSID"):
+                        # Format: "BSSID 1 : 00:xx:..."
+                        parts = line.split(":", 1)
+                        if len(parts) > 1:
+                            bssid = parts[1].strip()
+                            wifi_list.append(f"📶 {current_ssid}\n   `{bssid}`")
+                    elif line.startswith("Signal"):
+                         # Add signal to last entry
+                         if wifi_list:
+                             parts = line.split(":", 1)
+                             if len(parts) > 1:
+                                 wifi_list[-1] += f" ({parts[1].strip()})"
+            except Exception as e:
+                wifi_list.append(f"Scan Error: {e}")
+
+            # 2. Get IP & Geo
+            try:
+                info = requests.get("http://ip-api.com/json/", timeout=10).json()
+                if info.get("status") == "success":
+                    map_link = f"https://maps.google.com/?q={info['lat']},{info['lon']}"
+                    
+                    # Format WiFi Data (Top 8 strong signals)
+                    wifi_report = "\n".join(wifi_list[:8]) if wifi_list else "No WiFi networks found."
+                    
+                    msg = (f"📍 *Detailed Location Report*\n"
+                           f"--------------------------------\n"
+                           f"🌍 *IP-Based Info*:\n"
+                           f"   City: {info['city']}\n"
+                           f"   ISP: {info['isp']}\n"
+                           f"   IP: {info['query']}\n"
+                           f"   🔗 [Google Maps]({map_link})\n\n"
+                           f"📡 *Nearby WiFi (Triangulation Data)*:\n"
+                           f"{wifi_report}\n\n"
+                           f"_Copy BSSIDs to Wigle.net for precise coord_")
+                    send_reply(msg)
+                else:
+                    send_reply(f"❌ Geo-IP Failed. WiFi Scan:\n" + "\n".join(wifi_list[:5]))
+            except Exception as e:
+                send_reply(f"❌ Err: {e}")
+        
+        threading.Thread(target=fetch_loc).start()
+
     elif action == "/help":
         help_text = (
             "🛡️ *WatchDog Command Center*\n\n"
             "• /ping - Check status\n"
             "• /capture - Take photo\n"
             "• /screen - Screenshot\n"
+            "• /locate - Get Location\n"
             "• /lock - Lock PC\n"
             "• /msg [text] - Show popup"
         )

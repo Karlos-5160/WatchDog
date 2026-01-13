@@ -25,6 +25,17 @@ Write-Host "  Exe:  $exePath" -ForegroundColor Gray
 Write-Host "  User: $currentUser" -ForegroundColor Gray
 Write-Host ""
 
+# Enable Audit Policy (Critical for Event 4625)
+Write-Host "Enabling Audit Policy (Logon Failures)..." -ForegroundColor Yellow
+auditpol /set /subcategory:"Logon" /failure:enable
+if ($LASTEXITCODE -eq 0) {
+  Write-Host "[SUCCESS] Audit Policy Enabled" -ForegroundColor Green
+}
+else {
+  Write-Host "[WARNING] Could not set Audit Policy. Manual enable required." -ForegroundColor Red
+}
+Write-Host ""
+
 # Stop running instances
 Write-Host "Stopping running instances..." -ForegroundColor Yellow
 Stop-Process -Name monitor -Force -ErrorAction SilentlyContinue

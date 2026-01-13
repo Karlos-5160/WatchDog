@@ -320,16 +320,6 @@ def main():
         print("\n✓ Dual startup protection enabled!")
         print("  - Scheduled Task (runs on boot)")
         print("  - Registry Run Key (runs on user login)")
-    
-    print("\nNext Steps:")
-    print("  1. Verify your config.json has correct Telegram credentials")
-    print(f"     Location: {DEST_CONFIG}")
-    print("  2. SHUT DOWN your computer completely")
-    print("  3. Power it back on")
-    print("  4. At lock screen, enter 2 wrong PINs")
-    print("  5. Check Telegram for the alert!")
-    print("\nTo manually start the task now:")
-    print('  schtasks /Run /TN "AntiTheftMonitor"')
     print("\n")
     input("Press Enter to exit...")
 

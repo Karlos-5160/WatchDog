@@ -39,7 +39,7 @@ if not os.path.exists(CAPTURES_DIR):
     except Exception as e:
         print(f"[ERROR] Could not create capture dir: {e}")
 
-CAPTURE_COOLDOWN = 1  # seconds
+CAPTURE_COOLDOWN = 0.0  # Zero delay between possible captures
 last_capture_time = 0
 
 # --------------------------------------------------
@@ -164,7 +164,7 @@ def monitor_failed_logins(stop_event):
             try:
                 events = win32evtlog.ReadEventLog(handle, flags, 0)
                 if not events:
-                    time.sleep(0.05) # Ultra-fast polling
+                    time.sleep(0.001) # No delay polling
                     continue
 
                 for event in events:
@@ -183,7 +183,7 @@ def monitor_failed_logins(stop_event):
                                 threading.Thread(target=capture_intruder, daemon=True).start()
                                 last_capture_time = now
                             failed_count = 0
-                time.sleep(0.1)
+                time.sleep(0.001)
             except Exception as e:
                 print("[ERROR]", e)
                 time.sleep(2)

@@ -1,22 +1,23 @@
 # 🔒 WATCHDOG
 
-A lightweight, hidden background service that captures photos of intruders attempting to access your Windows laptop with wrong passwords.
+A lightweight, hidden background service that captures photos of intruders attempting to access your Windows laptop with wrong passwords. Plus, a remote command center controlled via Telegram.
 
 ## ✨ Features
 
 - 🚀 **Instant Detection** - Detects failed login attempts in 0.1 seconds
 - 📸 **Fast Capture** - Takes photo in 0.5 seconds using webcam
+- 📱 **Remote Command Center** - Control your PC via Telegram (`/capture`, `/screen`, `/locate`...)
 - 👻 **Hidden Execution** - Runs completely invisible in background
 - 🔄 **Auto-Restart** - Survives crashes with 999 retry attempts
-- 📱 **Telegram Alerts** - Sends photos directly to your Telegram
 - 🌐 **Offline Queue** - Saves photos when offline, uploads when connected
-- 🔐 **Boot Protection** - Starts before login on every boot
+- 🔐 **Boot Protection** - Starts before login on every boot (SYSTEM privileges)
+- 📡 **WiFi & Geo Location** - Triangulate location using nearby WiFi networks
 - ⚡ **Zero Maintenance** - Set it and forget it
 
 ## 📋 Requirements
 
 - Windows 10/11
-- Python 3.7+
+- Python 3.8+
 - Webcam
 - Telegram Bot Token & Chat ID
 
@@ -30,29 +31,50 @@ pip install -r requirements.txt
 
 ### 2. Configure Telegram
 
+Run the interactive setup script to save your Telegram credentials:
+
 ```powershell
 python setup/setup_gui.py
 ```
 
-Enter your Telegram Bot Token and Chat ID when prompted.
+### 3. Build & Install Service
 
-### 3. Install as Startup Service
+Run this script to **build the executable** and install the core monitoring service:
 
 **Run as Administrator:**
-
 ```powershell
 python setup/install_startup.py
 ```
+*This handles the build process (PyInstaller) and sets up the strict Lock Screen Monitor.*
 
-Or use the PowerShell script:
+### 4. Enable Full Features (Commander Mode) 🌟
 
+To enable the **Remote Command Center** (ability to send commands like `/screen`, `/locate`, etc.), run the PowerShell script. This creates two specialized tasks:
+1. `AntiTheft_Service` (Runs at Boot - WatchDog)
+2. `AntiTheft_Commander` (Runs at Login - Telegram Agent)
+
+**Run PowerShell as Administrator:**
 ```powershell
 powershell -ExecutionPolicy Bypass -File "setup/setup.ps1"
 ```
 
-### 4. Test It
+### 5. Test It
 
-Shut down your laptop, power it back on, and enter 2 wrong PINs at the lock screen. Check your Telegram!
+Shut down your laptop, power it back on, and enter 2 wrong PINs at the lock screen. Check your Telegram! Also, only for the first startup it will take ~ 10-12 seconds to run the task on boot, after that it will remain normal as a task.
+
+## 🎮 Remote Commands (Commander)
+
+Once the **Commander** task is running (after logging in), you can send these commands to your bot:
+
+| Command | Description |
+| :--- | :--- |
+| `/ping` | Check if the system is online and listening. |
+| `/capture` | Instantly take a photo using the webcam. |
+| `/screen` | Take a silent screenshot of the desktop. |
+| `/locate` | Get location report (IP + WiFi Triangulation). |
+| `/lock` | Instantly lock the workstation. |
+| `/msg "text"` | Pop up a notepad message on the screen (e.g., "Hello Thief"). |
+| `/help` | Show list of available commands. |
 
 ## 📁 Project Structure
 
@@ -60,23 +82,24 @@ Shut down your laptop, power it back on, and enter 2 wrong PINs at the lock scre
 Anti-Theft/
 ├── service/
 │   ├── monitor.py          # Main monitoring service
+│   ├── commander.py        # Telegram Remote Command Center
 │   ├── camera.py           # Camera capture module
 │   └── uploader.py         # Telegram upload module
 ├── setup/
-│   ├── setup_gui.py        # Telegram configuration
-│   ├── install_startup.py  # Automated installer
-│   └── final_fix.ps1       # PowerShell installer
+│   ├── setup_gui.py        # Configuration helper
+│   ├── install_startup.py  # Builder & Basic Installer
+│   └── setup.ps1           # Advanced Dual-Task Installer
 ├── dist/
-│   ├── monitor.exe         # Compiled executable (after build)
+│   ├── monitor.exe         # Compiled executable
 │   └── config.json         # Configuration file
-├── config.json             # Main configuration
+├── config.json             # Source configuration
 ├── monitor.spec            # PyInstaller build spec
 └── requirements.txt        # Python dependencies
 ```
 
 ## ⚙️ Configuration
 
-Edit `config.json`:
+Edit `config.json` manually if needed:
 
 ```json
 {
@@ -87,7 +110,7 @@ Edit `config.json`:
   "security": {
     "failed_attempt_threshold": 2,
     "event_id": 4625,
-    "check_interval_seconds": 1
+    "check_interval_seconds": 0.1
   },
   "camera": {
     "device_index": 0
@@ -99,76 +122,47 @@ Edit `config.json`:
 
 Run these commands in **PowerShell as Administrator**.
 
-### Start Monitor
-Starts the service immediately.
+### Check Status
 ```powershell
-schtasks /Run /TN "AntiTheftMonitor"
+schtasks /Query /TN "AntiTheft_Service"
+schtasks /Query /TN "AntiTheft_Commander"
 ```
 
-### Stop Monitor
-Stops the service immediately.
+### Stop All
 ```powershell
-schtasks /End /TN "AntiTheftMonitor"
+schtasks /End /TN "AntiTheft_Service"
+schtasks /End /TN "AntiTheft_Commander"
 Stop-Process -Name monitor -Force -ErrorAction SilentlyContinue
 ```
 
-### Disable Startup
-Prevents the monitor from starting automatically on boot.
+### Uninstall
 ```powershell
-schtasks /Change /TN "AntiTheftMonitor" /DISABLE
+schtasks /Delete /TN "AntiTheft_Service" /F
+schtasks /Delete /TN "AntiTheft_Commander" /F
+# Or if you only ran install_startup.py:
+schtasks /Delete /TN "AntiTheftMonitor" /F
 ```
-
-### Enable Startup
-Enables the monitor to start automatically on boot.
-```powershell
-schtasks /Change /TN "AntiTheftMonitor" /ENABLE
-```
-
-> **Note:** If you installed using `setup.ps1`, the task names are different:
-> - **Service:** `AntiTheft_Service`
-> - **Commander:** `AntiTheft_Commander`
->
-> Replace `"AntiTheftMonitor"` with the appropriate task name in the commands above.
 
 ## 🛡️ How It Works
 
-1. **Event Monitoring**: Monitors Windows Security Event Log for Event ID 4625 (failed login)
-2. **Threshold Detection**: Triggers after 2 failed attempts (configurable)
-3. **Photo Capture**: Uses OpenCV to capture webcam photo instantly
-4. **Queue System**: Saves photos to `C:\ProgramData\AntiTheftCaptures\` if offline
-5. **Upload Worker**: Background thread uploads queued photos when internet available
-6. **Telegram Delivery**: Sends photo with alert message to your Telegram
-
-## 📊 Performance
-
-- **Event Detection**: 0.1 seconds
-- **Photo Capture**: 0.5 seconds
-- **Total Response**: ~1.5 seconds from wrong PIN to photo
-- **Memory Usage**: ~50MB
-- **CPU Usage**: <1% idle, ~5% during capture
+1. **System Service (WatchDog)**: Runs as `SYSTEM` on boot. Watches Windows Security Log for `Event 4625`. Triggers webcam capture on wrong password.
+2. **User Agent (Commander)**: Runs as `User` on login. Polls Telegram for commands. Executes user-context actions (screenshot, notepad, etc.).
 
 ## 🔐 Security Notes
 
-- Runs as SYSTEM user with highest privileges
-- Configuration stored in plain text (consider encrypting bot token)
-- Photos stored temporarily in ProgramData (deleted after upload)
-- No network activity except Telegram uploads
+- Runs as SYSTEM user with highest privileges.
+- Configuration stored in plain text.
+- Photos stored temporarily in `C:\ProgramData\AntiTheftCaptures\` (hidden).
 
 ## 🐛 Troubleshooting
 
+### Commander commands not working?
+- The Commander only runs **after** a user logs in (it needs a desktop session for screenshots/GUI).
+- Ensure `AntiTheft_Commander` task is running: `Get-ScheduledTask | ? TaskName -like "AntiTheft*"`
+
 ### Monitor not starting after shutdown?
-- Disable Windows Fast Startup in Power Options
-- Check Task Scheduler for errors
-- Verify executable exists in `dist/` folder
-
-### Not receiving Telegram messages?
-- Verify bot token and chat ID in config.json
-- Check internet connection
-- Look for queued photos in `C:\ProgramData\AntiTheftCaptures\`
-
-### Console window appearing?
-- Rebuild with: `pyinstaller --clean monitor.spec`
-- Ensure `console=False` in monitor.spec
+- Disable Windows Fast Startup in Power Options.
+- Check `dist/monitor.exe` exists.
 
 ## 📝 License
 
@@ -177,14 +171,6 @@ MIT License - Feel free to use and modify
 ## 🤝 Contributing
 
 Contributions welcome! Please open an issue or submit a pull request.
-
-## ⚠️ Disclaimer
-
-This software is for personal security purposes only. Ensure you comply with local laws regarding surveillance and photography. The author is not responsible for misuse.
-
-## 📧 Support
-
-For issues and questions, please open a GitHub issue or contact via Telegram.
 
 ---
 

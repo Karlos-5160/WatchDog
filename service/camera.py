@@ -10,14 +10,15 @@ def capture_intruder_file(save_dir, cam_index=0, prefix="capture_"):
     """
     try:
         import cv2
-        cam = cv2.VideoCapture(cam_index)
+        # Use DirectShow on Windows for faster init
+        cam = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
         
-        # Immediate read, no warmup (optimized)
+        # Immediate read
         ret, frame = cam.read()
         
         if not ret:
-            # Quick retry
-            time.sleep(0.1)
+            # Ultra-fast retry
+            time.sleep(0.01)
             ret, frame = cam.read()
 
         cam.release()
