@@ -1,7 +1,5 @@
 # 🔒 WATCHDOG - Advanced Anti-Theft System
 
-![WatchDog Execution Flow](flowchart.png)
-
 A professional-grade, covert background service that transforms your Windows laptop into a smart security device. It silently monitors unauthorized access attempts and provides remote command capabilities via Telegram.
 
 ## ✨ Key Features
@@ -45,6 +43,8 @@ WatchDog uses a sophisticated **Dual-Process Architecture** to ensure maximum re
     *   Handling user commands like `/screen`, `/msg`, etc.
 
 ---
+
+![WatchDog Execution Flow](flowchart.png)
 
 ## 🛡️ Security & Evasion
 
