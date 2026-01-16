@@ -157,6 +157,7 @@ def monitor_failed_logins(stop_event):
 
     try:
         handle = win32evtlog.OpenEventLog(server, log_type)
+        # 1. Position at the end
         back_flags = win32evtlog.EVENTLOG_BACKWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
         events = win32evtlog.ReadEventLog(handle, back_flags, 0)
         last_record = events[0].RecordNumber if events else 0
@@ -164,36 +165,55 @@ def monitor_failed_logins(stop_event):
         print(f"[*] Anchored at record {last_record}")
         print("[*] Monitoring Security log (INSTANT MODE - Fast Detection)")
 
-        flags = win32evtlog.EVENTLOG_FORWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
+        start_time = time.time()
         failed_count = 0
 
         while not stop_event.is_set():
             try:
-                events = win32evtlog.ReadEventLog(handle, flags, 0)
+                # Use SEEK_READ to strictly read from the last known position forward
+                flags = win32evtlog.EVENTLOG_FORWARDS_READ | win32evtlog.EVENTLOG_SEEK_READ
+                events = win32evtlog.ReadEventLog(handle, flags, last_record)
+                
                 if not events:
-                    time.sleep(0.001) # No delay polling
+                    time.sleep(0.5)
                     continue
 
                 for event in events:
+                    # Skip events we've already processed
                     if event.RecordNumber <= last_record:
                         continue
+                        
                     last_record = event.RecordNumber
 
+                    # Only process events that happened after we started monitoring
+                    # (Optional safety, but RecordNumber handling is usually sufficient)
+                    
                     if event.EventID == TARGET_EVENT_ID:
                         failed_count += 1
-                        print(f"[ALERT] Failed login #{failed_count}")
+                        print(f"[ALERT] Failed login #{failed_count} (Event {event.RecordNumber})")
 
                         if failed_count >= FAILED_THRESHOLD:
                             now = time.time()
                             if now - last_capture_time >= CAPTURE_COOLDOWN:
-                                print(f"[ACTION] Capturing NOW...")
+                                print(f"[ACTION] Wrong Password Threshold Reached! Capturing...")
                                 threading.Thread(target=capture_intruder, daemon=True).start()
                                 last_capture_time = now
-                            failed_count = 0
-                time.sleep(0.001)
+                                failed_count = 0  # Reset after capture
+                            else:
+                                print("[INFO] Capture on cooldown")
+                                failed_count = 0 # Reset anyway
+            
+                time.sleep(0.5)
+
             except Exception as e:
-                print("[ERROR]", e)
+                # If handle becomes invalid or other issues
+                print(f"[ERROR] Event Loop: {e}")
                 time.sleep(2)
+                # Try to recover handle
+                try: 
+                    handle = win32evtlog.OpenEventLog(server, log_type) 
+                except: pass
+
     except Exception as e:
         print(f"[CRITICAL] Event Log Error: {e}")
 
