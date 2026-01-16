@@ -185,6 +185,49 @@ def execute_command(command_text):
         
         threading.Thread(target=fetch_loc).start()
 
+    elif action == "/stat" or action == "/stats":
+        send_reply("📊 Fetching system statistics...")
+        try:
+            import psutil
+            import platform
+            
+            # CPU
+            cpu_freq = psutil.cpu_freq()
+            freq_curr = f"{cpu_freq.current:.1f}Mhz" if cpu_freq else "N/A"
+            cpu_usage = psutil.cpu_percent(interval=1)
+            
+            # Memory
+            ram = psutil.virtual_memory()
+            ram_total = f"{ram.total / (1024**3):.1f}GB"
+            ram_used = f"{ram.used / (1024**3):.1f}GB"
+            ram_percent = ram.percent
+            
+            # Disk
+            disk = psutil.disk_usage('C:\\')
+            disk_total = f"{disk.total / (1024**3):.1f}GB"
+            disk_free = f"{disk.free / (1024**3):.1f}GB"
+            
+            # Battery
+            battery = psutil.sensors_battery()
+            batt_status = "N/A"
+            if battery:
+                plugged = "🔌 Plugged In" if battery.power_plugged else "🔋 On Battery"
+                batt_status = f"{battery.percent}% ({plugged})"
+
+            stats_msg = (
+                f"📊 *System Statistics*\n"
+                f"------------------------\n"
+                f"💻 *System*: {platform.system()} {platform.release()}\n"
+                f"🧠 *CPU*: {cpu_usage}% (Freq: {freq_curr})\n"
+                f"💾 *RAM*: {ram_used} / {ram_total} ({ram_percent}%)\n"
+                f"💿 *Disk (C:)*: {disk_free} free / {disk_total}\n"
+                f"⚡ *Battery*: {batt_status}\n"
+                f"⏱️ *Boot Time*: {datetime.fromtimestamp(psutil.boot_time()).strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            send_reply(stats_msg)
+        except Exception as e:
+            send_reply(f"❌ Failed to fetch stats: {e}")
+
     elif action == "/help":
         help_text = (
             "🛡️ *WatchDog Command Center*\n\n"
@@ -192,13 +235,33 @@ def execute_command(command_text):
             "• /capture - Take photo\n"
             "• /screen - Screenshot\n"
             "• /locate - Get Location\n"
+            "• /stat - System Statistics\n"
             "• /lock - Lock PC\n"
             "• /msg [text] - Show popup"
         )
         send_reply(help_text)
 
+def set_bot_commands():
+    """Update the command menu in Telegram to match available commands"""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands"
+    commands = [
+        {"command": "ping", "description": "Check status"},
+        {"command": "capture", "description": "Take photo"},
+        {"command": "screen", "description": "Take screenshot"},
+        {"command": "locate", "description": "Get location"},
+        {"command": "stat", "description": "System statistics"},
+        {"command": "lock", "description": "Lock PC"},
+        {"command": "msg", "description": "Show message on screen"},
+        {"command": "help", "description": "Show help"}
+    ]
+    try:
+        requests.post(url, json={"commands": commands}, timeout=10)
+    except:
+        pass
+
 def start_commander_loop():
     """Main polling loop using Long Polling"""
+    set_bot_commands()
     offset = 0
     print("[*] Commander Service Started (Low-RAM Polling Mode)")
     
