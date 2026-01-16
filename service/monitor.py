@@ -4,6 +4,13 @@ import json
 import win32evtlog
 import threading
 import sys
+try:
+    import win32gui
+    import win32con
+except ImportError:
+    win32gui = None
+    win32con = None
+import requests
 
 # Ensure root directory is in path for imports
 if not getattr(sys, 'frozen', False):
@@ -194,6 +201,41 @@ def monitor_failed_logins(stop_event):
 # ENTRY POINT
 # --------------------------------------------------
 # --------------------------------------------------
+# SHUTDOWN MONITOR
+# --------------------------------------------------
+def send_shutdown_alert():
+    if not BOT_TOKEN or not CHAT_ID: return
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        requests.post(url, json={"chat_id": CHAT_ID, "text": "⚠️ System Shutdown Detected! WatchDog is stopping."}, timeout=2)
+    except:
+        pass
+
+def run_shutdown_monitor():
+    if not win32gui: return
+    
+    def wnd_proc(hwnd, msg, wparam, lparam):
+        if msg == win32con.WM_QUERYENDSESSION:
+            print("[ALERT] Shutdown detected!")
+            send_shutdown_alert()
+            return 1
+        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
+
+    wc = win32gui.WNDCLASS()
+    wc.lpfnWndProc = wnd_proc
+    wc.lpszClassName = "WatchDogShutdown"
+    wc.hInstance = win32gui.GetModuleHandle(None)
+    
+    try:
+        win32gui.RegisterClass(wc)
+    except: pass
+    
+    try:
+        win32gui.CreateWindowEx(0, wc.lpszClassName, "WD_Shutdown_Listener", 0, 0, 0, 0, 0, 0, 0, 0, None)
+        win32gui.PumpMessages()
+    except: pass
+
+# --------------------------------------------------
 # ENTRY POINT
 # --------------------------------------------------
 def start_service(stop_event):
@@ -214,6 +256,13 @@ def start_service(stop_event):
         daemon=True
     )
     upload_thread.start()
+
+    # 3. Start Shutdown Monitor (Low Priority)
+    shutdown_thread = threading.Thread(
+        target=run_shutdown_monitor,
+        daemon=True
+    )
+    shutdown_thread.start()
 
 def start_commander():
     print("[*] Commander Mode: Starting Telegram Agent")

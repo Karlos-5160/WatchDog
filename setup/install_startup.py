@@ -129,7 +129,7 @@ def create_task():
   <Triggers>
     <BootTrigger>
       <Enabled>true</Enabled>
-      <Delay>PT10S</Delay>
+      <Delay>PT0S</Delay>
     </BootTrigger>
   </Triggers>
   <Principals>
