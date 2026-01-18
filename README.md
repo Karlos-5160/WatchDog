@@ -21,7 +21,7 @@ A lightweight, hidden background service that captures photos of intruders attem
 
 ---
 
-## 🛠️ Step 0: Create Telegram Bot
+## 🛠️ Step 1: Create Telegram Bot
 
 Before installing, you need a Telegram Bot to receive alerts.
 
@@ -31,7 +31,7 @@ Before installing, you need a Telegram Bot to receive alerts.
 4.  **BotFather** will give you a **Token** (e.g., `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`).
 5.  **Copy this Token**.
 
-## 🆔 Step 1: Get Your Chat ID
+## 🆔 Step 2: Get Your Chat ID
 
 You need your unique Chat ID so the bot knows where to send the photos.
 
@@ -53,13 +53,13 @@ You need your unique Chat ID so the bot knows where to send the photos.
 
 ---
 
-## 🚀 Step 2: Installation
+## 🚀 Step 3: Installation
 
-1.  Download the **Installer**:
-    `dist/WatchDog_Installer_v3.exe`
-2.  Run the installer.
-3.  Enter your **Bot Token** and **Chat ID** when prompted.
-4.  Click **Install**.
+1.  Download the ** `WatchDog_Installer_v3.rar`**:
+2.  Extract it in a folder
+3.  Run the installer.
+4.  Enter your **Bot Token** and **Chat ID** when prompted.
+5.  Click **Install**.
 
 That's it! WatchDog is now protecting your system.
 
