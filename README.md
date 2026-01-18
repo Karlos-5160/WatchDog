@@ -55,7 +55,7 @@ You need your unique Chat ID so the bot knows where to send the photos.
 
 ## 🚀 Step 3: Installation
 
-1.  Download the ** `WatchDog_Installer_v3.rar`**:
+1.  Download the **`WatchDog_Installer_v3.rar`**:
 2.  Extract it in a folder
 3.  Run the installer.
 4.  Enter your **Bot Token** and **Chat ID** when prompted.
