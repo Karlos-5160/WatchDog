@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import threading
 import time
+import webbrowser
 from PIL import Image, ImageTk
 
 # Force Taskbar Icon Persistence early
@@ -45,6 +46,7 @@ class InstallerApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
+        self.title(APP_NAME)
         self.title(APP_NAME)
         self.geometry("650x520") # More compact height
         self.resizable(False, False)
@@ -117,19 +119,24 @@ class WelcomePage(ttk.Frame):
         self.controller = controller
 
         # Content Frame
+        # Bottom Action Area
+        action_area = ttk.Frame(self)
+        action_area.pack(side="bottom", fill="x", pady=(0, 10)) # Reduced padding to save vertical space
+
+        # Content Frame
         content = ttk.Frame(self)
         content.pack(fill="both", expand=True)
 
         # Header
         label = ttk.Label(content, text="WatchDog Security", style="Header.TLabel")
-        label.pack(pady=(20, 10), anchor="center")
+        label.pack(pady=(15, 5), anchor="center")
         
         # Subheader / Description
         desc_text = (
             "Advanced Anti-Theft Protection for Windows.\n"
             "Runs silently, Capture intruders & Alerts you instantly."
         )
-        ttk.Label(content, text=desc_text, style="SubHeader.TLabel", justify="center").pack(pady=(0, 20), anchor="center")
+        ttk.Label(content, text=desc_text, style="SubHeader.TLabel", justify="center").pack(pady=(0, 10), anchor="center")
 
         # Feature List Container (Centered Block)
         features_frame = ttk.Frame(content)
@@ -157,17 +164,32 @@ class WelcomePage(ttk.Frame):
             
             if os.path.exists(branding_path):
                 img = Image.open(branding_path)
-                # Resize to fit nicely (maintaining aspect ratio)
-                img.thumbnail((200, 120)) 
+                # Resize to fit nicely (smaller to fix layout)
+                img.thumbnail((160, 90)) 
                 self.branding_img = ImageTk.PhotoImage(img)
                 branding_lbl = ttk.Label(content, image=self.branding_img)
-                branding_lbl.pack(pady=10)
+                branding_lbl.pack(pady=2)
         except Exception as e:
             print(f"Branding load error: {e}")
 
-        # Bottom Action Area - Moved up
-        action_area = ttk.Frame(self)
-        action_area.pack(side="bottom", fill="x", pady=(0, 15))
+        # Developer Buttons
+        dev_frame = ttk.Frame(content)
+        dev_frame.pack(side="bottom", anchor="w", padx=0, pady=(0, 5)) # Absolute Left
+
+        ttk.Label(dev_frame, text="Developed by:", font=("Segoe UI", 12, "bold"), foreground="#0078D7").pack(anchor="w", pady=(0, 2))
+
+        devs = [
+            ("Utkarsh Srivastava (drizzlehx)", "https://www.github.com/codes-by-utkarsh"),
+            ("Kuldeep Choudhary (Karlos-5160)", "https://www.github.com/Karlos-5160"),
+            ("Rishi Shah (rishis26)", "https://www.github.com/rishis26")
+        ]
+
+        # Modern Styling: Light Blue Color Block Buttons
+        for name, url in devs:
+            tk.Button(dev_frame, text=name, command=lambda u=url: webbrowser.open(u),
+                     font=("Segoe UI", 10, "bold"), bg="#E8F6FD", fg="#0078D7",
+                     relief="flat", overrelief="solid", borderwidth=1, width=34, height=1,
+                     cursor="hand2", anchor="w", padx=10, pady=2).pack(anchor="w", pady=1)
 
         # Admin Check
         if not is_admin():
@@ -182,9 +204,9 @@ class WelcomePage(ttk.Frame):
             # Standard tk.Button for "Primary" action
             btn = tk.Button(action_area, text="Get Started  →", 
                             command=lambda: controller.show_frame("ConfigPage"),
-                            font=("Segoe UI", 11, "bold"), bg="#0078D7", fg="white", 
+                            font=("Segoe UI", 10, "bold"), bg="#0078D7", fg="white", 
                             activebackground="#0063b1", activeforeground="white",
-                            relief="flat", padx=20, pady=8, cursor="hand2")
+                            relief="flat", padx=15, pady=5, cursor="hand2")
             btn.pack(side="right")
 
     def relaunch_admin(self):
@@ -547,23 +569,36 @@ class SuccessPage(ttk.Frame):
         super().__init__(parent)
         self.controller = controller
 
-        # Main Container for this page
+        # Footer Frame (Packed FIRST to reserve bottom space)
+        footer = ttk.Frame(self)
+        footer.pack(side="bottom", fill="x", pady=5)
+
+        # Close Button (Inside Footer)
+        tk.Button(footer, text="Close", command=lambda: sys.exit(),
+                 font=("Segoe UI", 12, "bold"), 
+                 bg="#333333", fg="white", 
+                 activebackground="#555555", activeforeground="white",
+                 relief="flat", padx=30, pady=10, cursor="hand2").pack(side="top", pady=(0, 15))
+
+        # Copyright Text (Inside Footer)
+        ttk.Label(footer, text="© Copyright All Rights Reserved.", 
+                 font=("Segoe UI", 9, "bold"), foreground="#333333").pack(side="bottom")
+
+        # Main Container (Packed LAST to fill remaining space)
         content = ttk.Frame(self)
         content.pack(fill="both", expand=True, padx=20)
 
-        # Success Header (Larger & Green)
-        # We create a specific label here to override style strictly if needed, 
-        # but using the style with an override font work well.
-        lbl = ttk.Label(content, text="Installation Complete!", font=("Segoe UI", 26, "bold"), foreground="#28a745")
-        lbl.pack(pady=(10, 5))
+        # Success Header (Increased Size)
+        lbl = ttk.Label(content, text="Installation Complete!", font=("Segoe UI", 24, "bold"), foreground="#28a745")
+        lbl.pack(pady=(5, 0))
 
-        # Subheader
-        ttk.Label(content, text="WatchDog Security is active and protecting your system.", 
-                 font=("Segoe UI", 14), foreground="#555555").pack(pady=(0, 15))
+        # Subheader (Increased Size)
+        ttk.Label(content, text="WatchDog Security is now active.", 
+                 font=("Segoe UI", 13), foreground="#555555").pack(pady=(0, 10))
 
         # Status Checklist Frame
-        status_frame = ttk.LabelFrame(content, text=" System Status ", padding=15)
-        status_frame.pack(fill="x", pady=5)
+        status_frame = ttk.LabelFrame(content, text=" System Status ", padding=5)
+        status_frame.pack(fill="x", pady=4)
 
         checklist = [
             ("✅", "System Service Installed", "Running (Auto-Start)"),
@@ -572,32 +607,28 @@ class SuccessPage(ttk.Frame):
         ]
 
         for i, (icon, title, status) in enumerate(checklist):
-             # Icon
-             ttk.Label(status_frame, text=icon, font=("Segoe UI", 14)).grid(row=i, column=0, padx=10, pady=8)
-             # Title
-             ttk.Label(status_frame, text=title, font=("Segoe UI", 12, "bold")).grid(row=i, column=1, sticky="w", padx=5)
-             # Status Detail
-             ttk.Label(status_frame, text=status, font=("Segoe UI", 11), foreground="#666666").grid(row=i, column=2, sticky="w", padx=10)
+             # Icon (Larger)
+             ttk.Label(status_frame, text=icon, font=("Segoe UI", 14)).grid(row=i, column=0, padx=5, pady=2)
+             # Title (Larger)
+             ttk.Label(status_frame, text=title, font=("Segoe UI", 12, "bold")).grid(row=i, column=1, sticky="w", padx=2)
+             # Status Detail (Larger)
+             ttk.Label(status_frame, text=status, font=("Segoe UI", 11), foreground="#666666").grid(row=i, column=2, sticky="w", padx=5)
 
         # Next Steps Section
         steps_frame = ttk.Frame(content)
-        steps_frame.pack(fill="x", pady=10)
+        steps_frame.pack(fill="x", pady=16)
         
-        ttk.Label(steps_frame, text="👉 Next Steps:", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 5))
+        ttk.Label(steps_frame, text="👉 Next Steps:", font=("Segoe UI", 13, "bold")).pack(anchor="w", pady=(0, 2))
         
         steps_text = (
             "1. Lock your screen (Win + L).\n"
             "2. Enter a wrong password to trigger the alarm.\n"
             "3. Check your Telegram for the photo alert."
         )
-        ttk.Label(steps_frame, text=steps_text, font=("Segoe UI", 12), justify="left").pack(anchor="w", padx=20)
+        ttk.Label(steps_frame, text=steps_text, font=("Segoe UI", 11), justify="left").pack(anchor="w", padx=10, pady=(0, 6))
 
-        # Close Button (Bottom) - Modern Flat Dark Style
-        tk.Button(self, text="Close", command=lambda: sys.exit(),
-                 font=("Segoe UI", 11, "bold"), 
-                 bg="#333333", fg="white", 
-                 activebackground="#555555", activeforeground="white",
-                 relief="flat", padx=40, pady=10, cursor="hand2").pack(side="bottom", pady=20)
+        # End of SuccessPage
+
 
 if __name__ == "__main__":
     if not is_admin():
